@@ -4,7 +4,6 @@ import {
   comments,
   loans,
   fraudList,
-  friendships,
   notifications,
   postReactions,
   systemSettings,
@@ -727,11 +726,10 @@ export class DatabaseStorage implements IStorage {
     return results;
   }
 
-  // Friends
+  // Friends implementations
   async createFriendRequest(friendship: InsertFriendship): Promise<Friendship> {
     const [newFriendship] = await db.insert(friendships).values(friendship).returning();
 
-    // Create notification for addressee
     await this.createNotification({
       userId: friendship.addresseeId,
       type: 'friend_request',
@@ -744,7 +742,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getFriends(userId: string): Promise<User[]> {
-    const friendships = await db
+    const result = await db
       .select({
         friendship: friendships,
         friend: users,
@@ -762,7 +760,7 @@ export class DatabaseStorage implements IStorage {
         )
       );
 
-    return friendships.map(({ friend }) => friend!);
+    return result.map(({ friend }) => friend!);
   }
 
   async getFriendRequests(userId: string): Promise<(Friendship & { requester: User })[]> {
@@ -795,7 +793,6 @@ export class DatabaseStorage implements IStorage {
       .returning();
 
     if (status === 'accepted') {
-      // Create notification for requester
       await this.createNotification({
         userId: friendship.requesterId,
         type: 'friend_accepted',
