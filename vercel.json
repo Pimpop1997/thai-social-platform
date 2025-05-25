@@ -24,13 +24,4 @@
       "dest": "/dist/$1"
     }
   ],
-  "env": {
-    "DATABASE_URL": "@database_url",
-    "NODE_ENV": "production"
-  },
-  "functions": {
-    "server/index.ts": {
-      "maxDuration": 30
-    }
-  }
-}
+
