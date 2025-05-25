@@ -13,7 +13,6 @@ import {
   themeItems,
   userItems,
   userThemes,
-  friendships,
   type User,
   type UpsertUser,
   type InsertPost,
@@ -496,16 +495,14 @@ export class DatabaseStorage implements IStorage {
   // Loans
   async createLoan(loan: InsertLoan): Promise<Loan> {
     // คำนวณเงื่อนไขการกู้ตามระดับผู้ใช้
-
-    // ป้องกัน loan.loanTermDays เป็น null/undefined
-    const termDays = loan.loanTermDays ?? terms.termDays;
+    const terms = await this.calculateLoanTerms(loan.userId, Number(loan.amount), loan.loanTermDays);
 
     const loanData = {
       ...loan,
       interestRate: terms.interestRate.toString(),
       totalAmount: terms.totalAmount.toString(),
-      loanTermDays: termDays,
-      dueDate: new Date(Date.now() + termDays * 24 * 60 * 60 * 1000),
+      loanTermDays: terms.termDays,
+      dueDate: new Date(Date.now() + terms.termDays * 24 * 60 * 60 * 1000),
       status: 'pending'
     };
 
@@ -673,27 +670,17 @@ export class DatabaseStorage implements IStorage {
       const loanData = await db.select().from(loans).where(eq(loans.id, id));
       if (loanData.length > 0) {
         const loan = loanData[0];
-        // ป้องกัน loan.dueDate เป็น null
-        if (loan.dueDate) {
-          const isOnTime = paidAt <= loan.dueDate;
-          if (isOnTime) {
-            await db
-              .update(users)
-              .set({ 
-                onTimePayments: sql`${users.onTimePayments} + 1`,
-                totalPayments: sql`${users.totalPayments} + 1`
-              })
-              .where(eq(users.id, loan.userId));
-          } else {
-            await db
-              .update(users)
-              .set({ 
-                totalPayments: sql`${users.totalPayments} + 1`
-              })
-              .where(eq(users.id, loan.userId));
-          }
+        const isOnTime = paidAt <= loan.dueDate;
+
+        if (isOnTime) {
+          await db
+            .update(users)
+            .set({ 
+              onTimePayments: sql`${users.onTimePayments} + 1`,
+              totalPayments: sql`${users.totalPayments} + 1`
+            })
+            .where(eq(users.id, loan.userId));
         } else {
-          // ถ้าไม่มี dueDate ให้ถือว่าไม่ on time
           await db
             .update(users)
             .set({ 
@@ -758,7 +745,7 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .select({
         friendship: friendships,
-        friend: users as any, // ป้องกัน implicit any
+        friend: users,
       })
       .from(friendships)
       .leftJoin(users, or(
@@ -913,7 +900,6 @@ export class DatabaseStorage implements IStorage {
         isPrivate: chatRooms.isPrivate,
         createdAt: chatRooms.createdAt,
         createdBy: chatRooms.createdBy,
-        description: chatRooms.description ?? null, // เพิ่ม description ให้ครบ type
       })
       .from(chatRooms)
       .leftJoin(chatParticipants, eq(chatRooms.id, chatParticipants.roomId))
@@ -953,7 +939,7 @@ export class DatabaseStorage implements IStorage {
           participants,
           messages: [],
           lastMessage: messages[0] || undefined,
-        };
+        } as ChatRoomWithParticipants;
       })
     );
 
@@ -998,9 +984,7 @@ export class DatabaseStorage implements IStorage {
       query = query.where(eq(themeItems.category, category));
     }
 
-    // ปรับให้ type ตรง ThemeItem[]
-    const items = await query.orderBy(themeItems.price);
-    return items as ThemeItem[];
+    return await query.orderBy(themeItems.price);
   }
 
   async getUserItems(userId: string): Promise<UserItemWithTheme[]> {
