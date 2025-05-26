@@ -495,8 +495,9 @@ export class DatabaseStorage implements IStorage {
 
   // Loans
   async createLoan(loan: InsertLoan): Promise<Loan> {
-    // คำนวณเงื่อนไขการกู้ตามระดับผู้ใช้
 
+    // คำนวณ terms ก่อนสร้าง loan
+    const terms = await this.calculateLoanTerms(loan.userId, Number(loan.amount), loan.loanTermDays);
     // ป้องกัน loan.loanTermDays เป็น null/undefined
     const termDays = loan.loanTermDays ?? terms.termDays;
 
@@ -921,7 +922,7 @@ export class DatabaseStorage implements IStorage {
 
     const roomsWithParticipants = await Promise.all(
       rooms.map(async (room) => {
-        const participants = await db
+        const participantsRaw = await db
           .select({
             id: chatParticipants.id,
             roomId: chatParticipants.roomId,
@@ -932,6 +933,17 @@ export class DatabaseStorage implements IStorage {
           .from(chatParticipants)
           .leftJoin(users, eq(chatParticipants.userId, users.id))
           .where(eq(chatParticipants.roomId, room.id));
+
+        // filter เฉพาะที่ user ไม่เป็น null และ cast type ให้ถูกต้อง
+        const participants = participantsRaw
+          .filter((p) => p.user !== null)
+          .map((p) => ({
+            id: p.id,
+            roomId: p.roomId,
+            userId: p.userId,
+            joinedAt: p.joinedAt,
+            user: p.user!
+          })) as (typeof participantsRaw[0] & { user: User })[];
 
         const messages = await db
           .select({
@@ -953,7 +965,7 @@ export class DatabaseStorage implements IStorage {
           participants,
           messages: [],
           lastMessage: messages[0] || undefined,
-        };
+        } satisfies ChatRoomWithParticipants;
       })
     );
 
@@ -992,15 +1004,14 @@ export class DatabaseStorage implements IStorage {
 
   // ฟังก์ชันร้านค้าไอเทม
   async getShopItems(category?: string): Promise<ThemeItem[]> {
-    let query = db.select().from(themeItems);
-
+    // query builder ของ drizzle ต้องสร้างใหม่ถ้าจะเพิ่ม where
+    let items: ThemeItem[];
     if (category && category !== 'all') {
-      query = query.where(eq(themeItems.category, category));
+      items = await db.select().from(themeItems).where(eq(themeItems.category, category)).orderBy(themeItems.price);
+    } else {
+      items = await db.select().from(themeItems).orderBy(themeItems.price);
     }
-
-    // ปรับให้ type ตรง ThemeItem[]
-    const items = await query.orderBy(themeItems.price);
-    return items as ThemeItem[];
+    return items;
   }
 
   async getUserItems(userId: string): Promise<UserItemWithTheme[]> {
