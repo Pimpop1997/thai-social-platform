@@ -679,10 +679,10 @@ export class DatabaseStorage implements IStorage {
           const isOnTime = paidAt <= loan.dueDate;
           if (isOnTime) {
             await db
-              .update(users)
+              .update(users) 
               .set({
-                onTimePayments: sql<number>`${users.onTimePayments ?? 0} + 1`,
-                totalPayments: sql<number>`${users.totalPayments} + 1`
+                onTimePayments: sql<number>`cast(${users.onTimePayments} as integer) + 1`,
+                totalPayments: sql<number>`cast(${users.totalPayments} as integer) + 1`
               })
               .where(eq(users.id, loan.userId));
           } else {
@@ -690,14 +690,14 @@ export class DatabaseStorage implements IStorage {
               .update(users)
               .set({
                 totalPayments: sql`${users.totalPayments} + 1`
-})
+              })
               .where(eq(users.id, loan.userId));
           }
         } else {
           // ถ้าไม่มี dueDate ให้ถือว่าไม่ on time
           await db
             .update(users)
-            .set({
+            .set({ 
               totalPayments: sql`${users.totalPayments} + 1`
             })
             .where(eq(users.id, loan.userId));
@@ -951,7 +951,7 @@ export class DatabaseStorage implements IStorage {
             roomId: chatMessages.roomId,
             userId: chatMessages.userId,
             content: chatMessages.content,
- messageType: chatMessages.messageType as 'text' | 'image', // Explicitly cast
+            messageType: chatMessages.messageType as 'text' | 'image', // Explicitly cast
             createdAt: chatMessages.createdAt,
             user: users,
           })
@@ -965,7 +965,7 @@ export class DatabaseStorage implements IStorage {
           ...room,
           participants,
           messages: [],
-          lastMessage: messages[0] || undefined,
+          lastMessage: messages.length > 0 ? messages[0] as ChatMessageWithUser : undefined,
         } satisfies ChatRoomWithParticipants;
       })
     );
@@ -981,7 +981,7 @@ export class DatabaseStorage implements IStorage {
         userId: chatMessages.userId,
         content: chatMessages.content,
         messageType: chatMessages.messageType as 'text' | 'image', // Explicitly cast
- createdAt: chatMessages.createdAt,
+        createdAt: chatMessages.createdAt,
         user: users,
       })
       .from(chatMessages)
@@ -990,7 +990,7 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(chatMessages.createdAt)) // Usually chat messages are ordered descending
       .limit(limit);
 
-    return messages as ChatMessageWithUser[];
+    return messages.map(msg => ({...msg, user: msg.user!})) as ChatMessageWithUser[];
   }  async sendMessage(message: InsertChatMessage): Promise<ChatMessage> {
     const [newMessage] = await db.insert(chatMessages).values(message).returning();
     return newMessage;
