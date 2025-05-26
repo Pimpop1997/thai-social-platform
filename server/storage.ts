@@ -680,8 +680,8 @@ export class DatabaseStorage implements IStorage {
           if (isOnTime) {
             await db
               .update(users)
-              .set({ 
-                onTimePayments: sql<number>`${users.onTimePayments} + 1`,
+              .set({
+                onTimePayments: sql<number>`${users.onTimePayments ?? 0} + 1`,
                 totalPayments: sql<number>`${users.totalPayments} + 1`
               })
               .where(eq(users.id, loan.userId));
@@ -697,7 +697,7 @@ export class DatabaseStorage implements IStorage {
           // ถ้าไม่มี dueDate ให้ถือว่าไม่ on time
           await db
             .update(users)
-            .set({ 
+            .set({
               totalPayments: sql`${users.totalPayments} + 1`
             })
             .where(eq(users.id, loan.userId));
@@ -951,7 +951,7 @@ export class DatabaseStorage implements IStorage {
             roomId: chatMessages.roomId,
             userId: chatMessages.userId,
             content: chatMessages.content,
- messageType: chatMessages.messageType as 'text' | 'image', // Explicitly cast to expected union type
+ messageType: chatMessages.messageType as 'text' | 'image', // Explicitly cast
             createdAt: chatMessages.createdAt,
             user: users,
           })
@@ -980,7 +980,7 @@ export class DatabaseStorage implements IStorage {
         roomId: chatMessages.roomId,
         userId: chatMessages.userId,
         content: chatMessages.content,
-        messageType: chatMessages.messageType as 'text' | 'image', // Explicitly cast to expected union type
+        messageType: chatMessages.messageType as 'text' | 'image', // Explicitly cast
  createdAt: chatMessages.createdAt,
         user: users,
       })
