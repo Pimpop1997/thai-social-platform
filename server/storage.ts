@@ -681,14 +681,14 @@ export class DatabaseStorage implements IStorage {
             await db
               .update(users) 
               .set({
-                onTimePayments: sql<number>`cast(${users.onTimePayments} as integer) + 1`,
-                totalPayments: sql<number>`cast(${users.totalPayments} as integer) + 1`
+ onTimePayments: sql`${users.onTimePayments ?? 0} + 1`,
+ totalPayments: sql`${users.totalPayments ?? 0} + 1`
               })
               .where(eq(users.id, loan.userId));
           } else {
             await db
               .update(users)
-              .set({
+              .set({ 
                 totalPayments: sql`${users.totalPayments} + 1`
               })
               .where(eq(users.id, loan.userId));
@@ -929,10 +929,11 @@ export class DatabaseStorage implements IStorage {
             userId: chatParticipants.userId,
             joinedAt: chatParticipants.joinedAt,
             user: users,
-          })
+          }).from(chatParticipants)
+          .leftJoin(users, eq(chatParticipants.userId, users.id))
           .from(chatParticipants)
           .leftJoin(users, eq(chatParticipants.userId, users.id))
-          .where(eq(chatParticipants.roomId, room.id));
+          .where(eq(chatParticipants.roomId, room.id))
 
         // filter เฉพาะที่ user ไม่เป็น null และ cast type ให้ถูกต้อง
         const participants = participantsRaw
@@ -951,7 +952,7 @@ export class DatabaseStorage implements IStorage {
             roomId: chatMessages.roomId,
             userId: chatMessages.userId,
             content: chatMessages.content,
-            messageType: chatMessages.messageType as 'text' | 'image', // Explicitly cast
+            messageType: chatMessages.messageType as 'text' | 'image',
             createdAt: chatMessages.createdAt,
             user: users,
           })
@@ -964,7 +965,7 @@ export class DatabaseStorage implements IStorage {
         return {
           ...room,
           participants,
-          messages: [],
+          messages: [], // You might want to fetch the last message here if needed for the type
           lastMessage: messages.length > 0 ? messages[0] as ChatMessageWithUser : undefined,
         } satisfies ChatRoomWithParticipants;
       })
@@ -980,7 +981,7 @@ export class DatabaseStorage implements IStorage {
         roomId: chatMessages.roomId,
         userId: chatMessages.userId,
         content: chatMessages.content,
-        messageType: chatMessages.messageType as 'text' | 'image', // Explicitly cast
+        messageType: chatMessages.messageType as 'text' | 'image',
         createdAt: chatMessages.createdAt,
         user: users,
       })
