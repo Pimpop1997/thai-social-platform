@@ -681,14 +681,14 @@ export class DatabaseStorage implements IStorage {
             await db
               .update(users)
               .set({ 
-                onTimePayments: sql`${users.onTimePayments} + 1`,
+                onTimePayments: sql<number>`${users.onTimePayments} + 1`,
                 totalPayments: sql<number>`${users.totalPayments} + 1`
               })
               .where(eq(users.id, loan.userId));
           } else {
             await db
               .update(users)
-              .set({ 
+              .set({
                 totalPayments: sql`${users.totalPayments} + 1`
 })
               .where(eq(users.id, loan.userId));
@@ -951,7 +951,7 @@ export class DatabaseStorage implements IStorage {
             roomId: chatMessages.roomId,
             userId: chatMessages.userId,
             content: chatMessages.content,
- messageType: chatMessages.messageType,
+ messageType: chatMessages.messageType as 'text' | 'image', // Explicitly cast to expected union type
             createdAt: chatMessages.createdAt,
             user: users,
           })
@@ -980,14 +980,14 @@ export class DatabaseStorage implements IStorage {
         roomId: chatMessages.roomId,
         userId: chatMessages.userId,
         content: chatMessages.content,
-        messageType: chatMessages.messageType,
-        createdAt: chatMessages.createdAt,
+        messageType: chatMessages.messageType as 'text' | 'image', // Explicitly cast to expected union type
+ createdAt: chatMessages.createdAt,
         user: users,
       })
       .from(chatMessages)
       .leftJoin(users, eq(chatMessages.userId, users.id))
       .where(eq(chatMessages.roomId, roomId))
-      .orderBy(asc(chatMessages.createdAt))
+      .orderBy(desc(chatMessages.createdAt)) // Usually chat messages are ordered descending
       .limit(limit);
 
     return messages as ChatMessageWithUser[];
